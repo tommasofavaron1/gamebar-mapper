@@ -2,65 +2,65 @@
 
 ![Controller Mapper](Assets/StoreLogo.scale-200.png)
 
-Controller Mapper e un widget per Xbox Game Bar che rimappa gli input di un controller XInput. Il widget gestisce i profili e mostra un'anteprima live; un companion desktop applica il mapping ai giochi tramite un controller Xbox 360 virtuale.
+Controller Mapper is an Xbox Game Bar widget that remaps input from an XInput controller. The widget manages profiles and shows a live preview, while a desktop companion applies the mappings to games through a virtual Xbox 360 controller.
 
-> Il progetto e in sviluppo e l'installer non e firmato digitalmente. ViGEmBus e HidHide sono driver di terze parti e la loro installazione richiede privilegi amministrativi.
+> This project is under development and the installer is not digitally signed. ViGEmBus and HidHide are third-party drivers, and installing them requires administrator privileges.
 
-## Funzionalita
+## Features
 
-- Widget ridimensionabile e fissabile in Xbox Game Bar.
-- Mapping di pulsanti, trigger analogici, D-pad, dorsali, stick, Menu e View.
-- Disabilitazione dei singoli pulsanti.
-- Profili JSON persistenti e aggiornamento live del mapping.
-- Anteprima indipendente dalla rimappatura reale.
-- Output virtuale Xbox 360 tramite ViGEmBus.
-- Eliminazione del doppio input tramite HidHide.
+- Resizable and pinnable Xbox Game Bar widget.
+- Mapping for buttons, analog triggers, D-pad, bumpers, sticks, Menu, and View.
+- Individual button disabling.
+- Persistent JSON profiles and live mapping updates.
+- Preview independent from the active remapping output.
+- Virtual Xbox 360 output through ViGEmBus.
+- Double-input prevention through HidHide.
 
-Con **Rimappatura ON**, il backend collega il controller virtuale e nasconde i nodi HID/XInput del controller fisico. Con **Rimappatura OFF**, scollega il virtuale e rende nuovamente visibile il controller fisico.
+With **Remapping ON**, the backend connects the virtual controller and hides the physical controller's HID/XInput nodes. With **Remapping OFF**, it disconnects the virtual controller and makes the physical controller visible again.
 
-I mapping `LeftTrigger` e `RightTrigger` conservano l'intensita analogica quando l'uscita e un altro trigger. Un trigger associato a un pulsante usa la soglia XInput standard; un pulsante associato a un trigger produce una pressione completa.
+`LeftTrigger` and `RightTrigger` mappings preserve analog intensity when the output is another trigger. A trigger mapped to a button uses the standard XInput threshold, while a button mapped to a trigger produces a full press.
 
-## Requisiti
+## Requirements
 
-- Windows 10/11 x64 con Xbox Game Bar aggiornata.
-- Visual Studio 2022 Community con il workload **Sviluppo piattaforma UWP**.
+- Windows 10/11 x64 with an up-to-date Xbox Game Bar.
+- Visual Studio 2022 Community with the **Universal Windows Platform development** workload.
 - Windows 10 SDK `10.0.18362.0`.
 - .NET SDK 9.
-- ViGEmBus `1.22.0` e HidHide `1.5.230.0` per la rimappatura reale.
+- ViGEmBus `1.22.0` and HidHide `1.5.230.0` for actual input remapping.
 
-## Sviluppo
+## Development
 
-Compilare e registrare il widget:
+Build and register the widget:
 
 ```powershell
 .\build.cmd
 powershell.exe -ExecutionPolicy Bypass -File .\install-dev.ps1
 ```
 
-La build UWP usa `Release|x64` e .NET Native. Per lavorare rapidamente sul solo backend:
+The UWP build uses `Release|x64` and .NET Native. To work on the backend only:
 
 ```powershell
 dotnet build .\companion\ControllerMapper.Backend.csproj -c Debug -r win-x64
 .\companion\bin\Debug\net9.0-windows\win-x64\ControllerMapper.Backend.exe --self-test
 ```
 
-I comandi principali sono disponibili anche in **Terminal > Run Task** in VS Code.
+The main commands are also available from **Terminal > Run Task** in VS Code.
 
-## Configurazione HidHide
+## HidHide Configuration
 
-Se l'installer di Controller Mapper mostra un errore durante l'installazione di HidHide, scaricare e installare manualmente [HidHide 1.5.230](https://github.com/nefarius/HidHide/releases/download/v1.5.230.0/HidHide_1.5.230_x64.exe). Riavviare Windows se richiesto, quindi eseguire nuovamente l'installer di Controller Mapper.
+If the Controller Mapper installer reports an error while installing HidHide, download and install [HidHide 1.5.230](https://github.com/nefarius/HidHide/releases/download/v1.5.230.0/HidHide_1.5.230_x64.exe) manually. Restart Windows if prompted, then run the Controller Mapper installer again.
 
-Dopo avere installato i driver e collegato un solo controller fisico, eseguire PowerShell come amministratore:
+After installing the drivers and connecting a single physical controller, run PowerShell as an administrator:
 
 ```powershell
 .\configure-hidhide.ps1
 ```
 
-Lo script registra il backend tra le applicazioni consentite, identifica il controller fisico ed esclude il controller virtuale ViGEm. Per evitare handle gia aperti, avviare o riavviare il gioco dopo una modifica alla configurazione HidHide.
+The script registers the backend as an allowed application, identifies the physical controller, and excludes the virtual ViGEm controller. To avoid handles that were already open, start or restart the game after changing the HidHide configuration.
 
 ## Installer
 
-La build dell'installer richiede [Inno Setup 6](https://jrsoftware.org/isinfo.php), installabile con:
+Building the installer requires [Inno Setup 6](https://jrsoftware.org/isinfo.php), which can be installed with:
 
 ```powershell
 winget install --id JRSoftware.InnoSetup --exact
@@ -70,15 +70,15 @@ winget install --id JRSoftware.InnoSetup --exact
 powershell.exe -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```
 
-L'output viene creato in `dist\ControllerMapperSetup.exe`. La cartella `dist` non fa parte del repository: pubblicare l'EXE come asset di una GitHub Release.
+The output is created at `dist\ControllerMapperSetup.exe`. The `dist` directory is not part of the repository; publish the EXE as a GitHub Release asset.
 
-## Struttura
+## Project Structure
 
-- `Widget1.xaml`: interfaccia del widget Game Bar.
-- `Models/` e `Services/`: profilo, persistenza e stato backend.
-- `companion/`: lettura XInput, mapping, ViGEm e controllo HidHide.
-- `installer/`: creazione e contenuto dell'installer standalone.
-- `Assets/`: loghi e risorse visuali UWP.
-- `ARCHITECTURE.md`: flusso dei dati e responsabilita dei componenti.
+- `Widget1.xaml`: Game Bar widget interface.
+- `Models/` and `Services/`: profiles, persistence, and backend state.
+- `companion/`: XInput reading, mappings, ViGEm, and HidHide control.
+- `installer/`: standalone installer creation and contents.
+- `Assets/`: logos and UWP visual assets.
+- `ARCHITECTURE.md`: data flow and component responsibilities.
 
-I profili e lo stato runtime sono salvati nella `LocalState` del pacchetto UWP e non vengono inclusi nel repository.
+Profiles and runtime state are stored in the UWP package's `LocalState` and are not included in the repository.
