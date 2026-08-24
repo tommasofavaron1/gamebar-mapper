@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:WidgetSampleCS"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    XYFocusKeyboardNavigation="Enabled"
     mc:Ignorable="d">
 
     <Grid Background="#17191D" Padding="18">
@@ -61,23 +62,25 @@
             <TextBlock Grid.Column="1" FontFamily="Segoe UI Semibold" Text="Uscita" />
         </Grid>
 
-        <ListView Grid.Row="3" ItemsSource="{x:Bind Profile.Mappings, Mode=OneWay}" SelectionMode="None">
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <Grid MinHeight="42">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="180" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock VerticalAlignment="Center" Text="{Binding Source}" />
-                        <ComboBox Grid.Column="1"
-                                  HorizontalAlignment="Stretch"
-                                  ItemsSource="{Binding TargetOptions}"
-                                  SelectedItem="{Binding Target, Mode=TwoWay}" />
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{x:Bind Profile.Mappings, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid MinHeight="42">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="180" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" Text="{Binding Source}" />
+                            <ComboBox Grid.Column="1"
+                                      HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding TargetOptions}"
+                                      SelectedItem="{Binding Target, Mode=TwoWay}" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
 
         <Grid Grid.Row="4" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
