@@ -1,3 +1,7 @@
+param(
+    [switch]$AllowNoController
+)
+
 $ErrorActionPreference = "Stop"
 
 $projectRoot = $PSScriptRoot
@@ -88,6 +92,17 @@ $physicalGamingDevices = @($gamingGroups | ForEach-Object {
     })
 
 $physicalControllerGroups = @($physicalGamingDevices | Group-Object ContainerId)
+if ($physicalControllerGroups.Count -eq 0 -and $AllowNoController) {
+    & $hidHideCli --cloak-off
+    $cloakState = (& $hidHideCli --cloak-state | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $cloakState -ne "--cloak-off") {
+        throw "HidHide non ha confermato la disattivazione temporanea del cloaking."
+    }
+
+    Write-Output "HIDHIDE_CONFIGURATION_PENDING=No physical controller detected"
+    return
+}
+
 if ($physicalControllerGroups.Count -ne 1) {
     $physicalGamingDevices | Format-Table Name, InstanceId, ContainerId -AutoSize
     throw "Rilevati $($physicalControllerGroups.Count) controller fisici. Configurazione automatica annullata per sicurezza."

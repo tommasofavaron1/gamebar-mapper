@@ -62,6 +62,7 @@ internal static class Program
         ViGEmClient? client = null;
         IXbox360Controller? virtualController = null;
         var hidHide = new HidHideController();
+        var physicalControllerConfigured = false;
         using var activeLoopTimer = new HighResolutionTimer();
 
         try
@@ -89,6 +90,7 @@ internal static class Program
 
                 if (!profile.Enabled)
                 {
+                    physicalControllerConfigured = false;
                     var hidHideError = hidHide.SetCloaking(false);
                     DisconnectVirtualController(ref virtualController);
                     WriteStatus(
@@ -101,10 +103,25 @@ internal static class Program
                 var physicalControllerIndex = (uint)Math.Clamp(profile.SelectedControllerIndex, 0, 3);
                 if (!XInput.TryGetState(physicalControllerIndex, out var state))
                 {
+                    physicalControllerConfigured = false;
                     DisconnectVirtualController(ref virtualController);
                     WriteStatus("waiting", $"Controller {physicalControllerIndex + 1} non rilevato");
                     await Task.Delay(250);
                     continue;
+                }
+
+                if (!physicalControllerConfigured)
+                {
+                    var configurationError = hidHide.ConfigurePhysicalController();
+                    if (configurationError is not null)
+                    {
+                        DisconnectVirtualController(ref virtualController);
+                        WriteStatus("hidhide-error", $"Rimappatura sospesa: {configurationError}");
+                        await Task.Delay(2000);
+                        continue;
+                    }
+
+                    physicalControllerConfigured = true;
                 }
 
                 if (virtualController is null)

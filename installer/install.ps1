@@ -217,7 +217,7 @@ try {
     }
     else {
         try {
-            & (Join-Path $installRoot "configure-hidhide.ps1")
+            & (Join-Path $installRoot "configure-hidhide.ps1") -AllowNoController
         }
         catch {
             $hidHideConfigurationWarning = $_.Exception.Message

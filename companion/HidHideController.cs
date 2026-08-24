@@ -25,6 +25,56 @@ internal sealed class HidHideController
 
     private bool? currentState;
 
+    public string? ConfigurePhysicalController()
+    {
+        var scriptPath = FindConfigurationScript();
+        if (scriptPath is null)
+        {
+            return "Script di configurazione HidHide non trovato";
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "WindowsPowerShell",
+                "v1.0",
+                "powershell.exe"),
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        startInfo.ArgumentList.Add("-NoProfile");
+        startInfo.ArgumentList.Add("-ExecutionPolicy");
+        startInfo.ArgumentList.Add("Bypass");
+        startInfo.ArgumentList.Add("-File");
+        startInfo.ArgumentList.Add(scriptPath);
+
+        using var process = Process.Start(startInfo);
+        if (process is null)
+        {
+            return "Impossibile avviare la configurazione HidHide";
+        }
+
+        if (!process.WaitForExit(30000))
+        {
+            process.Kill(true);
+            return "Configurazione HidHide non completata entro 30 secondi";
+        }
+
+        if (process.ExitCode != 0)
+        {
+            var error = process.StandardError.ReadToEnd().Trim();
+            return string.IsNullOrWhiteSpace(error)
+                ? $"Configurazione HidHide terminata con codice {process.ExitCode}"
+                : error;
+        }
+
+        currentState = false;
+        return null;
+    }
+
     public string? SetCloaking(bool enabled)
     {
         if (currentState == enabled)
@@ -77,6 +127,23 @@ internal sealed class HidHideController
         }
 
         currentState = enabled;
+        return null;
+    }
+
+    private static string? FindConfigurationScript()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        for (var depth = 0; depth < 8 && directory is not null; depth++)
+        {
+            var candidate = Path.Combine(directory.FullName, "configure-hidhide.ps1");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
         return null;
     }
 }
