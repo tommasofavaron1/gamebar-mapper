@@ -7,6 +7,8 @@ using WidgetSampleCS.Services;
 using Windows.Gaming.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Input;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 
 namespace WidgetSampleCS
@@ -19,6 +21,8 @@ namespace WidgetSampleCS
         private DateTime nextBackendRefresh = DateTime.MinValue;
         private bool isInitializing;
         private bool statusRefreshInProgress;
+        private GamepadButtons previousGamepadButtons;
+        private ComboBox activeControllerComboBox;
 
         public MappingProfile Profile { get; private set; } = MappingProfile.CreateDefault();
         public IReadOnlyList<string> ControllerOptions { get; } = new[]
@@ -59,6 +63,7 @@ namespace WidgetSampleCS
             var gamepad = Gamepad.Gamepads.ElementAtOrDefault(selectedIndex);
             if (gamepad == null)
             {
+                previousGamepadButtons = GamepadButtons.None;
                 ControllerStatus.Text = $"Controller {selectedIndex + 1} non rilevato";
                 PressedButtons.Text = "Nessun tasto premuto";
                 return;
@@ -66,6 +71,7 @@ namespace WidgetSampleCS
 
             ControllerStatus.Text = $"Controller {selectedIndex + 1} connesso";
             var reading = gamepad.GetCurrentReading();
+            HandleControllerActivation(reading.Buttons);
             var pressed = Profile.Mappings
                 .Where(mapping => mapping.IsPressed(reading))
                 .Select(mapping => PreviewToggle.IsOn ? mapping.Target : mapping.Source)
@@ -82,6 +88,63 @@ namespace WidgetSampleCS
                 nextBackendRefresh = DateTime.UtcNow.AddSeconds(1);
                 _ = RefreshBackendStatusAsync();
             }
+        }
+
+        private void HandleControllerActivation(GamepadButtons buttons)
+        {
+            var newlyPressed = buttons & ~previousGamepadButtons;
+            previousGamepadButtons = buttons;
+
+            if (activeControllerComboBox != null && !activeControllerComboBox.IsDropDownOpen)
+            {
+                activeControllerComboBox = null;
+            }
+
+            if ((newlyPressed & GamepadButtons.B) == GamepadButtons.B)
+            {
+                if (activeControllerComboBox != null)
+                {
+                    activeControllerComboBox.IsDropDownOpen = false;
+                    activeControllerComboBox = null;
+                }
+
+                return;
+            }
+
+            if ((newlyPressed & GamepadButtons.A) != GamepadButtons.A)
+            {
+                return;
+            }
+
+            if (activeControllerComboBox != null)
+            {
+                activeControllerComboBox.IsDropDownOpen = false;
+                activeControllerComboBox = null;
+                return;
+            }
+
+            var comboBox = FindFocusedComboBox();
+            if (comboBox != null)
+            {
+                comboBox.IsDropDownOpen = true;
+                activeControllerComboBox = comboBox;
+            }
+        }
+
+        private static ComboBox FindFocusedComboBox()
+        {
+            var focusedElement = FocusManager.GetFocusedElement() as DependencyObject;
+            while (focusedElement != null)
+            {
+                if (focusedElement is ComboBox comboBox)
+                {
+                    return comboBox;
+                }
+
+                focusedElement = VisualTreeHelper.GetParent(focusedElement);
+            }
+
+            return null;
         }
 
         private void PreviewToggle_Toggled(object sender, RoutedEventArgs e)
