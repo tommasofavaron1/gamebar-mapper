@@ -10,7 +10,7 @@
   <Identity
     Name="ControllerMapperWidget"
     Publisher="CN=ControllerMapperWidget"
-    Version="1.0.0.10" />
+    Version="1.0.0.11" />
 
   <mp:PhoneIdentity PhoneProductId="4b9dee15-da50-4b0a-8337-9b84da542023" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

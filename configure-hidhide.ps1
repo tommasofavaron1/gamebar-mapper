@@ -72,17 +72,22 @@ $physicalXInputIds = @(Get-PnpDevice -PresentOnly -Class XnaComposite -ErrorActi
         }
     })
 
-if ($physicalXInputIds.Count -ne 1) {
-    throw "Rilevati $($physicalXInputIds.Count) nodi XInput per il controller fisico. Configurazione automatica annullata per sicurezza."
-}
-
-& $hidHideCli `
-    --dev-hide $physicalController.InstanceId `
-    --dev-hide $physicalXInputIds[0] `
-    --cloak-off
+& $hidHideCli --dev-hide $physicalController.InstanceId
 if ($LASTEXITCODE -ne 0) {
-    throw "Configurazione del controller fisico in HidHide non riuscita."
+    throw "Configurazione del dispositivo HID fisico in HidHide non riuscita."
 }
 
-Write-Output "HIDHIDE_CONFIGURED=$($physicalController.InstanceId),$($physicalXInputIds[0])"
+foreach ($physicalXInputId in $physicalXInputIds) {
+    & $hidHideCli --dev-hide $physicalXInputId
+    if ($LASTEXITCODE -ne 0) {
+        throw "Configurazione del nodo XInput $physicalXInputId in HidHide non riuscita."
+    }
+}
+
+& $hidHideCli --cloak-off
+if ($LASTEXITCODE -ne 0) {
+    throw "Disattivazione temporanea di HidHide non riuscita."
+}
+
+Write-Output "HIDHIDE_CONFIGURED=$($physicalController.InstanceId),$($physicalXInputIds -join ',')"
 Write-Output "Il controller resta visibile finche Rimappatura e disattivata."

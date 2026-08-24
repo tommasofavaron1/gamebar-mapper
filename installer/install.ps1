@@ -181,10 +181,26 @@ try {
         throw "Il pacchetto Controller Mapper non risulta installato correttamente."
     }
 
+    $hidHideConfigurationWarning = $null
     Copy-Item (Join-Path $workingRoot "configure-hidhide.ps1") $installRoot -Force
-    & (Join-Path $installRoot "configure-hidhide.ps1")
+    try {
+        & (Join-Path $installRoot "configure-hidhide.ps1")
+    }
+    catch {
+        $hidHideConfigurationWarning = $_.Exception.Message
+        Write-Warning "HidHide configuration was skipped: $hidHideConfigurationWarning"
+    }
 
     Start-UserComponents
+
+    if ($null -ne $hidHideConfigurationWarning) {
+        Add-Type -AssemblyName PresentationFramework
+        [System.Windows.MessageBox]::Show(
+            "Controller Mapper was installed and the backend is running, but HidHide could not be configured automatically.`n`n$hidHideConfigurationWarning`n`nConnect one controller and run configure-hidhide.ps1 from:`n$installRoot",
+            "Controller Mapper Setup",
+            "OK",
+            "Warning") | Out-Null
+    }
 }
 catch {
     Add-Type -AssemblyName PresentationFramework
