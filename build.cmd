@@ -7,5 +7,5 @@ if not exist "%MSBUILD%" (
     exit /b 1
 )
 
-"%MSBUILD%" "%~dp0WidgetSampleCS.csproj" /restore /t:Build /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Never /nologo /verbosity:minimal
+"%MSBUILD%" "%~dp0WidgetSampleCS.csproj" /restore /t:Build /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Never /p:BaseIntermediateOutputPath=obj-native\ /nologo /verbosity:minimal
 exit /b %ERRORLEVEL%

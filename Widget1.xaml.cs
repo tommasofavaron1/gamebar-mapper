@@ -65,9 +65,9 @@ namespace WidgetSampleCS
             }
 
             ControllerStatus.Text = $"Controller {selectedIndex + 1} connesso";
-            var buttons = gamepad.GetCurrentReading().Buttons;
+            var reading = gamepad.GetCurrentReading();
             var pressed = Profile.Mappings
-                .Where(mapping => mapping.IsPressed(buttons))
+                .Where(mapping => mapping.IsPressed(reading))
                 .Select(mapping => PreviewToggle.IsOn ? mapping.Target : mapping.Source)
                 .Where(button => button != MappingEntry.DisabledTarget)
                 .Distinct()

@@ -6,13 +6,22 @@
 			"type": "process",
 			"command": "${workspaceFolder}\\build.cmd",
 			"problemMatcher": "$msCompile",
-			"group": { "kind": "build", "isDefault": true }
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
 		},
 		{
 			"label": "Install widget development package",
 			"type": "process",
 			"command": "powershell.exe",
-			"args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\install-dev.ps1"],
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}\\install-dev.ps1"
+			],
 			"dependsOn": "Build widget Release",
 			"problemMatcher": []
 		},
@@ -20,7 +29,14 @@
 			"label": "Build backend Debug",
 			"type": "process",
 			"command": "dotnet",
-			"args": ["build", "${workspaceFolder}\\companion\\ControllerMapper.Backend.csproj", "-c", "Debug", "-r", "win-x64"],
+			"args": [
+				"build",
+				"${workspaceFolder}\\companion\\ControllerMapper.Backend.csproj",
+				"-c",
+				"Debug",
+				"-r",
+				"win-x64"
+			],
 			"problemMatcher": "$msCompile",
 			"group": "build"
 		},
@@ -28,7 +44,9 @@
 			"label": "Run backend Debug",
 			"type": "process",
 			"command": "${workspaceFolder}\\companion\\bin\\Debug\\net9.0-windows\\win-x64\\ControllerMapper.Backend.exe",
-			"args": ["--debug"],
+			"args": [
+				"--debug"
+			],
 			"dependsOn": "Build backend Debug",
 			"dependsOrder": "sequence",
 			"problemMatcher": []
@@ -37,7 +55,9 @@
 			"label": "Test backend",
 			"type": "process",
 			"command": "${workspaceFolder}\\companion\\bin\\Debug\\net9.0-windows\\win-x64\\ControllerMapper.Backend.exe",
-			"args": ["--self-test"],
+			"args": [
+				"--self-test"
+			],
 			"dependsOn": "Build backend Debug",
 			"dependsOrder": "sequence",
 			"problemMatcher": []
@@ -46,14 +66,26 @@
 			"label": "Configure HidHide",
 			"type": "process",
 			"command": "powershell.exe",
-			"args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\configure-hidhide.ps1"],
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}\\configure-hidhide.ps1"
+			],
 			"problemMatcher": []
 		},
 		{
 			"label": "Build installer",
 			"type": "process",
 			"command": "powershell.exe",
-			"args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\installer\\build-installer.ps1"],
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}\\installer\\build-installer.ps1"
+			],
 			"problemMatcher": "$msCompile",
 			"group": "build"
 		},
@@ -61,7 +93,9 @@
 			"label": "Open Xbox Game Bar",
 			"type": "process",
 			"command": "explorer.exe",
-			"args": ["ms-gamebar:"],
+			"args": [
+				"ms-gamebar:"
+			],
 			"problemMatcher": []
 		}
 	]

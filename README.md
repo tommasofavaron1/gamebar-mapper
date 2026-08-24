@@ -9,7 +9,7 @@ Controller Mapper e un widget per Xbox Game Bar che rimappa gli input di un cont
 ## Funzionalita
 
 - Widget ridimensionabile e fissabile in Xbox Game Bar.
-- Mapping di pulsanti, D-pad, dorsali, stick, Menu e View.
+- Mapping di pulsanti, trigger analogici, D-pad, dorsali, stick, Menu e View.
 - Disabilitazione dei singoli pulsanti.
 - Profili JSON persistenti e aggiornamento live del mapping.
 - Anteprima indipendente dalla rimappatura reale.
@@ -17,6 +17,8 @@ Controller Mapper e un widget per Xbox Game Bar che rimappa gli input di un cont
 - Eliminazione del doppio input tramite HidHide.
 
 Con **Rimappatura ON**, il backend collega il controller virtuale e nasconde i nodi HID/XInput del controller fisico. Con **Rimappatura OFF**, scollega il virtuale e rende nuovamente visibile il controller fisico.
+
+I mapping `LeftTrigger` e `RightTrigger` conservano l'intensita analogica quando l'uscita e un altro trigger. Un trigger associato a un pulsante usa la soglia XInput standard; un pulsante associato a un trigger produce una pressione completa.
 
 ## Requisiti
 

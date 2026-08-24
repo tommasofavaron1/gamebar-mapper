@@ -19,7 +19,9 @@ namespace WidgetSampleCS.Services
                 using (var stream = await file.OpenStreamForReadAsync())
                 {
                     var serializer = new DataContractJsonSerializer(typeof(MappingProfile));
-                    return serializer.ReadObject(stream) as MappingProfile ?? MappingProfile.CreateDefault();
+                    var profile = serializer.ReadObject(stream) as MappingProfile ?? MappingProfile.CreateDefault();
+                    profile.EnsureSupportedMappings();
+                    return profile;
                 }
             }
             catch (FileNotFoundException)

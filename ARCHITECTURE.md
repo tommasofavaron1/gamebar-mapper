@@ -6,7 +6,7 @@ Controller Mapper e composto da un widget UWP, un backend desktop e due driver d
 
 1. Il widget legge il controller con `Windows.Gaming.Input.Gamepad` e salva il profilo JSON nella `LocalState` del pacchetto.
 2. Il backend osserva il profilo e legge il primo controller fisico disponibile tramite XInput.
-3. `MappingEngine` trasforma i pulsanti digitali e conserva assi e trigger.
+3. `MappingEngine` trasforma pulsanti e trigger, conservando l'intensita analogica tra trigger.
 4. ViGEmBus espone il risultato come controller Xbox 360 virtuale.
 5. HidHide nasconde al gioco sia il nodo HID sia il nodo XInput del controller fisico.
 

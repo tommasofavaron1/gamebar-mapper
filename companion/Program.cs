@@ -136,23 +136,23 @@ internal static class Program
         XInputGamepad input,
         MappingProfile profile)
     {
-        var mappedButtons = MappingEngine.Apply(input.Buttons, profile);
+        var mapped = MappingEngine.Apply(input, profile);
 
         if (debugLogging &&
-            (input.Buttons != lastDebugInput || mappedButtons != lastDebugOutput))
+            (input.Buttons != lastDebugInput || mapped.Buttons != lastDebugOutput))
         {
-            Console.WriteLine($"Input: {input.Buttons,-20} -> Output: {mappedButtons}");
+            Console.WriteLine($"Input: {input.Buttons,-20} -> Output: {mapped.Buttons}");
             lastDebugInput = input.Buttons;
-            lastDebugOutput = mappedButtons;
+            lastDebugOutput = mapped.Buttons;
         }
 
         foreach (var pair in ButtonMap)
         {
-            controller.SetButtonState(pair.Value, (mappedButtons & pair.Key) != 0);
+            controller.SetButtonState(pair.Value, (mapped.Buttons & pair.Key) != 0);
         }
 
-        controller.SetSliderValue(Xbox360Slider.LeftTrigger, input.LeftTrigger);
-        controller.SetSliderValue(Xbox360Slider.RightTrigger, input.RightTrigger);
+        controller.SetSliderValue(Xbox360Slider.LeftTrigger, mapped.LeftTrigger);
+        controller.SetSliderValue(Xbox360Slider.RightTrigger, mapped.RightTrigger);
         controller.SetAxisValue(Xbox360Axis.LeftThumbX, input.LeftThumbX);
         controller.SetAxisValue(Xbox360Axis.LeftThumbY, input.LeftThumbY);
         controller.SetAxisValue(Xbox360Axis.RightThumbX, input.RightThumbX);
@@ -240,15 +240,27 @@ internal static class Program
             Mappings =
             [
                 new MappingEntry { Source = "A", Target = "B" },
-                new MappingEntry { Source = "X", Target = "Disabilitato" }
+                new MappingEntry { Source = "X", Target = "Disabilitato" },
+                new MappingEntry { Source = "Y", Target = "LeftTrigger" },
+                new MappingEntry { Source = "LeftTrigger", Target = "RightTrigger" },
+                new MappingEntry { Source = "RightTrigger", Target = "A" }
             ]
         };
-        var result = MappingEngine.Apply(XInputButtons.A | XInputButtons.X | XInputButtons.Y, profile);
-        var expected = XInputButtons.B | XInputButtons.Y;
-
-        if (result != expected)
+        var input = new XInputGamepad
         {
-            Console.Error.WriteLine($"Self-test fallito: atteso {expected}, ottenuto {result}");
+            Buttons = XInputButtons.A | XInputButtons.X | XInputButtons.Y,
+            LeftTrigger = 128,
+            RightTrigger = 200
+        };
+        var result = MappingEngine.Apply(input, profile);
+        var expectedButtons = XInputButtons.A | XInputButtons.B;
+
+        if (result.Buttons != expectedButtons ||
+            result.LeftTrigger != byte.MaxValue ||
+            result.RightTrigger != 128)
+        {
+            Console.Error.WriteLine(
+                $"Self-test fallito: ottenuti {result.Buttons}, LT={result.LeftTrigger}, RT={result.RightTrigger}");
             return 1;
         }
 
