@@ -4,6 +4,11 @@ $packageName = "ControllerMapperWidget"
 $installRoot = Join-Path $env:LOCALAPPDATA "Programs\ControllerMapperWidget"
 $workingRoot = Join-Path $env:TEMP ("ControllerMapperWidget-" + [Guid]::NewGuid().ToString("N"))
 $logPath = Join-Path $env:TEMP "ControllerMapperWidget-install.log"
+$programFiles64 = if ([string]::IsNullOrWhiteSpace(${env:ProgramW6432})) {
+    $env:ProgramFiles
+} else {
+    ${env:ProgramW6432}
+}
 
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
@@ -32,7 +37,7 @@ try {
         }
 
         if ($null -eq (Get-Service "ViGEmBus" -ErrorAction SilentlyContinue)) {
-            $driverRoot = Join-Path $env:ProgramFiles "Nefarius Software Solutions\ViGEm Bus Driver"
+            $driverRoot = Join-Path $programFiles64 "Nefarius Software Solutions\ViGEm Bus Driver"
             $nefcon = Join-Path $driverRoot "nefconw.exe"
             $driverInf = Join-Path $driverRoot "ViGEmBus.inf"
 
@@ -69,9 +74,9 @@ try {
     }
 
     $hidHideCliCandidates = @(
-        (Join-Path $env:ProgramFiles "Nefarius Software Solutions\HidHide\HidHideCLI.exe"),
-        (Join-Path $env:ProgramFiles "Nefarius Software Solutions\HidHide\x64\HidHideCLI.exe"),
-        (Join-Path $env:ProgramFiles "Nefarius Software Solutions\HidHideCLI.exe")
+        (Join-Path $programFiles64 "Nefarius Software Solutions\HidHide\HidHideCLI.exe"),
+        (Join-Path $programFiles64 "Nefarius Software Solutions\HidHide\x64\HidHideCLI.exe"),
+        (Join-Path $programFiles64 "Nefarius Software Solutions\HidHideCLI.exe")
     )
     $hidHideCli = $hidHideCliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($null -eq $hidHideCli) {
