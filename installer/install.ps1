@@ -1,3 +1,7 @@
+param(
+    [switch]$Elevated
+)
+
 $ErrorActionPreference = "Stop"
 
 $packageName = "ControllerMapperWidget"
@@ -15,22 +19,69 @@ $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentIdentity)
 $isAdministrator = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
+function Start-UserComponents {
+    $backendPath = Join-Path $installRoot "Companion\ControllerMapper.Backend.exe"
+    $backendStatusPath = Join-Path $env:LOCALAPPDATA "Packages\ControllerMapperWidget_fc9ae22wvwsv0\LocalState\backend-status.json"
+    if (-not (Test-Path $backendPath)) {
+        throw "The Controller Mapper backend was not installed."
+    }
+
+    $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+    New-Item $runKey -Force | Out-Null
+    New-ItemProperty `
+        -Path $runKey `
+        -Name "ControllerMapperBackend" `
+        -Value "`"$backendPath`"" `
+        -PropertyType String `
+        -Force | Out-Null
+
+    Get-Process "ControllerMapper.Backend" -ErrorAction SilentlyContinue | Stop-Process -Force
+    Remove-Item $backendStatusPath -Force -ErrorAction SilentlyContinue
+    $backendProcess = Start-Process -FilePath $backendPath -PassThru
+    $backendReportedReady = $false
+    for ($attempt = 0; $attempt -lt 12; $attempt++) {
+        if ($backendProcess.WaitForExit(250)) {
+            $backendLogPath = Join-Path $env:LOCALAPPDATA "ControllerMapperWidget\backend.log"
+            throw "The Controller Mapper backend exited with code $($backendProcess.ExitCode). Log: $backendLogPath"
+        }
+
+        if (Test-Path $backendStatusPath) {
+            $backendReportedReady = $true
+            break
+        }
+    }
+
+    if (-not $backendReportedReady) {
+        Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
+        throw "The Controller Mapper backend started but did not report its status."
+    }
+
+    Start-Process "ms-gamebar:"
+}
+
 if (-not $isAdministrator) {
-    $elevatedArguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $elevatedArguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Elevated"
     $elevatedProcess = Start-Process `
         -FilePath "powershell.exe" `
         -ArgumentList $elevatedArguments `
         -Verb RunAs `
         -Wait `
         -PassThru
-    exit $elevatedProcess.ExitCode
+    if ($elevatedProcess.ExitCode -ne 0) {
+        exit $elevatedProcess.ExitCode
+    }
+}
+
+if ($Elevated -and -not $isAdministrator) {
+    throw "Administrator privileges are required to install Controller Mapper."
 }
 
 try {
     Start-Transcript -Path $logPath -Force | Out-Null
     Expand-Archive -Path (Join-Path $PSScriptRoot "payload.zip") -DestinationPath $workingRoot -Force
 
-    if ($null -eq (Get-Service "ViGEmBus" -ErrorAction SilentlyContinue)) {
+    if (($Elevated -or $isAdministrator) -and
+        $null -eq (Get-Service "ViGEmBus" -ErrorAction SilentlyContinue)) {
         $driverSetup = Join-Path $workingRoot "Drivers\ViGEmBusSetup.exe"
         $driverProcess = Start-Process $driverSetup -ArgumentList "/passive", "/norestart" -Wait -PassThru
         if ($driverProcess.ExitCode -notin 0, 3010) {
@@ -74,26 +125,32 @@ try {
         }
     }
 
-    $hidHideCliCandidates = @(
-        (Join-Path $programFiles64 "Nefarius Software Solutions\HidHide\HidHideCLI.exe"),
-        (Join-Path $programFiles64 "Nefarius Software Solutions\HidHide\x64\HidHideCLI.exe"),
-        (Join-Path $programFiles64 "Nefarius Software Solutions\HidHideCLI.exe")
-    )
-    $hidHideCli = $hidHideCliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($null -eq $hidHideCli) {
-        $hidHideSetup = Join-Path $workingRoot "Drivers\HidHideSetup.exe"
-        $hidHideProcess = Start-Process `
-            -FilePath $hidHideSetup `
-            -Wait `
-            -PassThru
-        if ($hidHideProcess.ExitCode -notin 0, 3010) {
-            throw "Installazione HidHide non riuscita: codice $($hidHideProcess.ExitCode)."
-        }
-
+    if ($Elevated -or $isAdministrator) {
+        $hidHideCliCandidates = @(
+            (Join-Path $programFiles64 "Nefarius Software Solutions\HidHide\HidHideCLI.exe"),
+            (Join-Path $programFiles64 "Nefarius Software Solutions\HidHide\x64\HidHideCLI.exe"),
+            (Join-Path $programFiles64 "Nefarius Software Solutions\HidHideCLI.exe")
+        )
         $hidHideCli = $hidHideCliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
         if ($null -eq $hidHideCli) {
-            throw "HidHide e stato installato ma HidHideCLI non e disponibile. Riavvia Windows e ripeti l'installazione."
+            $hidHideSetup = Join-Path $workingRoot "Drivers\HidHideSetup.exe"
+            $hidHideProcess = Start-Process `
+                -FilePath $hidHideSetup `
+                -Wait `
+                -PassThru
+            if ($hidHideProcess.ExitCode -notin 0, 3010) {
+                throw "Installazione HidHide non riuscita: codice $($hidHideProcess.ExitCode)."
+            }
+
+            $hidHideCli = $hidHideCliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($null -eq $hidHideCli) {
+                throw "HidHide e stato installato ma HidHideCLI non e disponibile. Riavvia Windows e ripeti l'installazione."
+            }
         }
+    }
+
+    if ($Elevated) {
+        exit 0
     }
 
     Get-ChildItem (Join-Path $workingRoot "Dependencies") -Filter "*.appx" | ForEach-Object {
@@ -124,24 +181,10 @@ try {
         throw "Il pacchetto Controller Mapper non risulta installato correttamente."
     }
 
-    $backendPath = Join-Path $installRoot "Companion\ControllerMapper.Backend.exe"
     Copy-Item (Join-Path $workingRoot "configure-hidhide.ps1") $installRoot -Force
     & (Join-Path $installRoot "configure-hidhide.ps1")
-    $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-    New-Item $runKey -Force | Out-Null
-    New-ItemProperty `
-        -Path $runKey `
-        -Name "ControllerMapperBackend" `
-        -Value "`"$backendPath`"" `
-        -PropertyType String `
-        -Force | Out-Null
-    try {
-        Start-Process "explorer.exe" -ArgumentList "`"$backendPath`""
-        Start-Process "explorer.exe" -ArgumentList "ms-gamebar:"
-    }
-    catch {
-        Write-Warning "Installazione completata, ma l'avvio automatico iniziale non e riuscito: $($_.Exception.Message)"
-    }
+
+    Start-UserComponents
 }
 catch {
     Add-Type -AssemblyName PresentationFramework

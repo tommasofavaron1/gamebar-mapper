@@ -21,6 +21,10 @@ internal static class Program
         "LocalState");
     private static readonly string ProfilePath = Path.Combine(LocalStatePath, "controller-profile.json");
     private static readonly string StatusPath = Path.Combine(LocalStatePath, "backend-status.json");
+    private static readonly string DiagnosticPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ControllerMapperWidget",
+        "backend.log");
 
     public static async Task<int> Main(string[] args)
     {
@@ -37,9 +41,18 @@ internal static class Program
             return 0;
         }
 
-        Directory.CreateDirectory(LocalStatePath);
-        await RunAsync();
-        return 0;
+        try
+        {
+            Directory.CreateDirectory(LocalStatePath);
+            await RunAsync();
+            return 0;
+        }
+        catch (Exception exception)
+        {
+            WriteStartupFailure(exception);
+            WriteStatus("startup-error", $"Backend startup failed: {exception.Message}");
+            return 1;
+        }
     }
 
     private static async Task RunAsync()
@@ -230,6 +243,21 @@ internal static class Program
         catch (UnauthorizedAccessException)
         {
             File.Delete(temporaryPath);
+        }
+    }
+
+    private static void WriteStartupFailure(Exception exception)
+    {
+        try
+        {
+            var diagnosticDirectory = Path.GetDirectoryName(DiagnosticPath)!;
+            Directory.CreateDirectory(diagnosticDirectory);
+            File.AppendAllText(
+                DiagnosticPath,
+                $"[{DateTimeOffset.Now:O}] {exception}{Environment.NewLine}");
+        }
+        catch (Exception)
+        {
         }
     }
 
