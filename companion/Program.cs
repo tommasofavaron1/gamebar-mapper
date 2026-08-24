@@ -1,0 +1,262 @@
+using System.Text.Json;
+using Nefarius.ViGEm.Client;
+using Nefarius.ViGEm.Client.Targets;
+using Nefarius.ViGEm.Client.Targets.Xbox360;
+
+namespace ControllerMapper.Backend;
+
+internal static class Program
+{
+    private const string PackageFamilyName = "ControllerMapperWidget_fc9ae22wvwsv0";
+    private static bool debugLogging;
+    private static string? lastDebugStatus;
+    private static XInputButtons lastDebugInput;
+    private static XInputButtons lastDebugOutput;
+    private static string? lastWrittenStatus;
+    private static DateTime nextStatusWrite = DateTime.MinValue;
+    private static readonly string LocalStatePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Packages",
+        PackageFamilyName,
+        "LocalState");
+    private static readonly string ProfilePath = Path.Combine(LocalStatePath, "controller-profile.json");
+    private static readonly string StatusPath = Path.Combine(LocalStatePath, "backend-status.json");
+
+    public static async Task<int> Main(string[] args)
+    {
+        if (args.Contains("--self-test", StringComparer.OrdinalIgnoreCase))
+        {
+            return RunSelfTest();
+        }
+
+        debugLogging = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+
+        using var mutex = new Mutex(true, "Local\\ControllerMapperBackend", out var isFirstInstance);
+        if (!isFirstInstance)
+        {
+            return 0;
+        }
+
+        Directory.CreateDirectory(LocalStatePath);
+        await RunAsync();
+        return 0;
+    }
+
+    private static async Task RunAsync()
+    {
+        MappingProfile profile = new();
+        DateTime profileWriteTime = DateTime.MinValue;
+        ViGEmClient? client = null;
+        IXbox360Controller? virtualController = null;
+        uint? physicalControllerIndex = null;
+        var hidHide = new HidHideController();
+
+        try
+        {
+            while (true)
+            {
+                if (File.Exists(ProfilePath))
+                {
+                    var currentWriteTime = File.GetLastWriteTimeUtc(ProfilePath);
+                    if (currentWriteTime != profileWriteTime)
+                    {
+                        try
+                        {
+                            profile = MappingProfile.Load(ProfilePath);
+                            profileWriteTime = currentWriteTime;
+                        }
+                        catch (IOException)
+                        {
+                        }
+                        catch (JsonException)
+                        {
+                        }
+                    }
+                }
+
+                if (!profile.Enabled)
+                {
+                    var hidHideError = hidHide.SetCloaking(false);
+                    DisconnectVirtualController(ref virtualController);
+                    physicalControllerIndex = null;
+                    WriteStatus(
+                        hidHideError is null ? "disabled" : "hidhide-error",
+                        hidHideError ?? "Rimappatura disattivata, controller fisico visibile");
+                    await Task.Delay(100);
+                    continue;
+                }
+
+                physicalControllerIndex ??= XInput.FindConnectedController();
+                if (physicalControllerIndex is null ||
+                    !XInput.TryGetState(physicalControllerIndex.Value, out var state))
+                {
+                    DisconnectVirtualController(ref virtualController);
+                    physicalControllerIndex = null;
+                    WriteStatus("waiting", "Controller fisico non rilevato");
+                    await Task.Delay(250);
+                    continue;
+                }
+
+                if (virtualController is null)
+                {
+                    try
+                    {
+                        client ??= new ViGEmClient();
+                        virtualController = client.CreateXbox360Controller();
+                        virtualController.AutoSubmitReport = false;
+                        virtualController.Connect();
+                    }
+                    catch (Exception exception)
+                    {
+                        WriteStatus("driver-error", exception.Message);
+                        virtualController = null;
+                        client?.Dispose();
+                        client = null;
+                        await Task.Delay(1000);
+                        continue;
+                    }
+                }
+
+                SubmitState(virtualController, state.Gamepad, profile);
+                var cloakError = hidHide.SetCloaking(true);
+                WriteStatus(
+                    cloakError is null ? "active" : "hidhide-error",
+                    cloakError is null
+                        ? $"Controller fisico {physicalControllerIndex.Value + 1} nascosto, output virtuale attivo"
+                        : $"Output virtuale attivo, ma {cloakError}");
+                await Task.Delay(8);
+            }
+        }
+        finally
+        {
+            hidHide.SetCloaking(false);
+            DisconnectVirtualController(ref virtualController);
+            client?.Dispose();
+        }
+    }
+
+    private static void SubmitState(
+        IXbox360Controller controller,
+        XInputGamepad input,
+        MappingProfile profile)
+    {
+        var mappedButtons = MappingEngine.Apply(input.Buttons, profile);
+
+        if (debugLogging &&
+            (input.Buttons != lastDebugInput || mappedButtons != lastDebugOutput))
+        {
+            Console.WriteLine($"Input: {input.Buttons,-20} -> Output: {mappedButtons}");
+            lastDebugInput = input.Buttons;
+            lastDebugOutput = mappedButtons;
+        }
+
+        foreach (var pair in ButtonMap)
+        {
+            controller.SetButtonState(pair.Value, (mappedButtons & pair.Key) != 0);
+        }
+
+        controller.SetSliderValue(Xbox360Slider.LeftTrigger, input.LeftTrigger);
+        controller.SetSliderValue(Xbox360Slider.RightTrigger, input.RightTrigger);
+        controller.SetAxisValue(Xbox360Axis.LeftThumbX, input.LeftThumbX);
+        controller.SetAxisValue(Xbox360Axis.LeftThumbY, input.LeftThumbY);
+        controller.SetAxisValue(Xbox360Axis.RightThumbX, input.RightThumbX);
+        controller.SetAxisValue(Xbox360Axis.RightThumbY, input.RightThumbY);
+        controller.SubmitReport();
+    }
+
+    private static readonly IReadOnlyDictionary<XInputButtons, Xbox360Button> ButtonMap =
+        new Dictionary<XInputButtons, Xbox360Button>
+        {
+            [XInputButtons.DPadUp] = Xbox360Button.Up,
+            [XInputButtons.DPadDown] = Xbox360Button.Down,
+            [XInputButtons.DPadLeft] = Xbox360Button.Left,
+            [XInputButtons.DPadRight] = Xbox360Button.Right,
+            [XInputButtons.Menu] = Xbox360Button.Start,
+            [XInputButtons.View] = Xbox360Button.Back,
+            [XInputButtons.LeftThumbstick] = Xbox360Button.LeftThumb,
+            [XInputButtons.RightThumbstick] = Xbox360Button.RightThumb,
+            [XInputButtons.LeftShoulder] = Xbox360Button.LeftShoulder,
+            [XInputButtons.RightShoulder] = Xbox360Button.RightShoulder,
+            [XInputButtons.A] = Xbox360Button.A,
+            [XInputButtons.B] = Xbox360Button.B,
+            [XInputButtons.X] = Xbox360Button.X,
+            [XInputButtons.Y] = Xbox360Button.Y
+        };
+
+    private static void DisconnectVirtualController(ref IXbox360Controller? controller)
+    {
+        if (controller is null)
+        {
+            return;
+        }
+
+        controller.Disconnect();
+        controller = null;
+    }
+
+    private static void WriteStatus(string state, string message)
+    {
+        if (debugLogging)
+        {
+            var debugStatus = $"{state}: {message}";
+            if (!string.Equals(lastDebugStatus, debugStatus, StringComparison.Ordinal))
+            {
+                Console.WriteLine(debugStatus);
+                lastDebugStatus = debugStatus;
+            }
+        }
+
+        var status = $"{state}:{message}";
+        if (string.Equals(lastWrittenStatus, status, StringComparison.Ordinal) &&
+            DateTime.UtcNow < nextStatusWrite)
+        {
+            return;
+        }
+
+        var temporaryPath = StatusPath + ".tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(new
+            {
+                state,
+                message,
+                updatedAt = DateTimeOffset.UtcNow
+            }));
+            File.Move(temporaryPath, StatusPath, true);
+            lastWrittenStatus = status;
+            nextStatusWrite = DateTime.UtcNow.AddSeconds(1);
+        }
+        catch (IOException)
+        {
+            File.Delete(temporaryPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            File.Delete(temporaryPath);
+        }
+    }
+
+    private static int RunSelfTest()
+    {
+        var profile = new MappingProfile
+        {
+            Enabled = true,
+            Mappings =
+            [
+                new MappingEntry { Source = "A", Target = "B" },
+                new MappingEntry { Source = "X", Target = "Disabilitato" }
+            ]
+        };
+        var result = MappingEngine.Apply(XInputButtons.A | XInputButtons.X | XInputButtons.Y, profile);
+        var expected = XInputButtons.B | XInputButtons.Y;
+
+        if (result != expected)
+        {
+            Console.Error.WriteLine($"Self-test fallito: atteso {expected}, ottenuto {result}");
+            return 1;
+        }
+
+        Console.WriteLine("SELF_TEST_OK");
+        return 0;
+    }
+}

@@ -1,0 +1,31 @@
+# Visual Studio / UWP build output
+.vs/
+bin/
+obj/
+AppPackages/
+Generated Files/
+*.user
+*.suo
+
+# .NET companion build output
+companion/bin/
+companion/obj/
+
+# Installer artifacts and downloaded drivers
+installer/staging/
+dist/
+tools/
+Assets/*.backup.png
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.appxsym
+*.cer
+
+# IDE-local files
+.vscode/*.log
+
+# OS files
+Thumbs.db
+Desktop.ini

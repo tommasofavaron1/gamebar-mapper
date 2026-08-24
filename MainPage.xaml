@@ -1,0 +1,20 @@
+﻿<Page
+    x:Class="WidgetSampleCS.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:WidgetSampleCS"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+    mc:Ignorable="d">
+
+    <Grid Background="#17191D" Padding="32">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460">
+            <TextBlock FontFamily="Segoe UI Semibold" FontSize="28" Text="Controller Mapper" />
+            <TextBlock Margin="0,12,0,0"
+                       Foreground="#A9AFB8"
+                       Text="Apri Xbox Game Bar con Win+G e seleziona Controller Mapper dal menu widget."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+    </Grid>
+</Page>
