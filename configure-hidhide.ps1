@@ -18,6 +18,16 @@ if ($null -eq $hidHideCli) {
     throw "HidHide non installato. Esegui tools\HidHide_1.5.230_x64.exe e riavvia Windows."
 }
 
+& $hidHideCli --cloak-off
+if ($LASTEXITCODE -ne 0) {
+    throw "Disattivazione temporanea di HidHide non riuscita."
+}
+
+$initialCloakState = (& $hidHideCli --cloak-state | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $initialCloakState -ne "--cloak-off") {
+    throw "HidHide non ha confermato la disattivazione temporanea del cloaking."
+}
+
 $backendPaths = @($installedBackend, $debugBackend) | Where-Object { Test-Path $_ }
 foreach ($backendPath in $backendPaths) {
     & $hidHideCli --app-reg $backendPath
@@ -58,6 +68,38 @@ function Test-ViGEmContainer {
     }
 
     return $false
+}
+
+$hiddenDeviceConfiguration = @(& $hidHideCli --dev-list)
+if ($LASTEXITCODE -ne 0) {
+    throw "Lettura dei dispositivi nascosti da HidHide non riuscita."
+}
+
+$configuredHiddenDeviceIds = @($hiddenDeviceConfiguration | ForEach-Object {
+        if ($_ -match '^--dev-hide\s+"(.+)"$') {
+            $Matches[1]
+        }
+    })
+$hiddenViGEmDeviceIds = @($configuredHiddenDeviceIds | Where-Object {
+        Test-ViGEmContainer $_
+    })
+
+foreach ($hiddenViGEmDeviceId in $hiddenViGEmDeviceIds) {
+    & $hidHideCli --dev-unhide $hiddenViGEmDeviceId
+    if ($LASTEXITCODE -ne 0) {
+        throw "Rimozione del nodo ViGEm $hiddenViGEmDeviceId da HidHide non riuscita."
+    }
+}
+
+$cleanedHiddenConfiguration = (& $hidHideCli --dev-list | Out-String)
+if ($LASTEXITCODE -ne 0) {
+    throw "Verifica della pulizia dei nodi ViGEm da HidHide non riuscita."
+}
+
+foreach ($hiddenViGEmDeviceId in $hiddenViGEmDeviceIds) {
+    if ($cleanedHiddenConfiguration -match [regex]::Escape($hiddenViGEmDeviceId)) {
+        throw "HidHide elenca ancora il nodo ViGEm $hiddenViGEmDeviceId tra i dispositivi nascosti."
+    }
 }
 
 $gamingGroups = (& $hidHideCli --dev-gaming | Out-String | ConvertFrom-Json)
