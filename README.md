@@ -48,6 +48,8 @@ I comandi principali sono disponibili anche in **Terminal > Run Task** in VS Cod
 
 ## Configurazione HidHide
 
+Se l'installer di Controller Mapper mostra un errore durante l'installazione di HidHide, scaricare e installare manualmente [HidHide 1.5.230](https://github.com/nefarius/HidHide/releases/download/v1.5.230.0/HidHide_1.5.230_x64.exe). Riavviare Windows se richiesto, quindi eseguire nuovamente l'installer di Controller Mapper.
+
 Dopo avere installato i driver e collegato un solo controller fisico, eseguire PowerShell come amministratore:
 
 ```powershell
