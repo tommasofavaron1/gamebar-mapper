@@ -3,7 +3,9 @@ $ErrorActionPreference = "Stop"
 $packageName = "ControllerMapperWidget"
 $installRoot = Join-Path $env:LOCALAPPDATA "Programs\ControllerMapperWidget"
 $workingRoot = Join-Path $env:TEMP ("ControllerMapperWidget-" + [Guid]::NewGuid().ToString("N"))
-$logPath = Join-Path $env:TEMP "ControllerMapperWidget-install.log"
+$installId = [Guid]::NewGuid().ToString("N")
+$logPath = Join-Path $env:TEMP "ControllerMapperWidget-install-$installId.log"
+$hidHideLogPath = Join-Path $env:TEMP "ControllerMapperWidget-HidHide-$installId.log"
 $programFiles64 = if ([string]::IsNullOrWhiteSpace(${env:ProgramW6432})) {
     $env:ProgramFiles
 } else {
@@ -83,11 +85,11 @@ try {
         $hidHideSetup = Join-Path $workingRoot "Drivers\HidHideSetup.exe"
         $hidHideProcess = Start-Process `
             -FilePath $hidHideSetup `
-            -ArgumentList "/install", "/quiet", "/norestart" `
+            -ArgumentList "/install", "/quiet", "/log", "`"$hidHideLogPath`"", "INSTALLLEVEL=2" `
             -Wait `
             -PassThru
         if ($hidHideProcess.ExitCode -notin 0, 3010) {
-            throw "Installazione HidHide non riuscita: codice $($hidHideProcess.ExitCode)."
+            throw "Installazione HidHide non riuscita: codice $($hidHideProcess.ExitCode). Log HidHide: $hidHideLogPath"
         }
 
         $hidHideCli = $hidHideCliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
