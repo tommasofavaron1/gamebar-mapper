@@ -49,6 +49,7 @@ internal static class Program
         ViGEmClient? client = null;
         IXbox360Controller? virtualController = null;
         var hidHide = new HidHideController();
+        using var activeLoopTimer = new HighResolutionTimer();
 
         try
         {
@@ -120,7 +121,7 @@ internal static class Program
                     cloakError is null
                         ? $"Controller fisico {physicalControllerIndex + 1} nascosto, output virtuale attivo"
                         : $"Output virtuale attivo, ma {cloakError}");
-                await Task.Delay(8);
+                activeLoopTimer.Wait(1);
             }
         }
         finally
