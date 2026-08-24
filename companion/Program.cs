@@ -127,13 +127,19 @@ internal static class Program
                     }
                 }
 
-                SubmitState(virtualController, state.Gamepad, profile);
                 var cloakError = hidHide.SetCloaking(true);
+                if (cloakError is not null)
+                {
+                    DisconnectVirtualController(ref virtualController);
+                    WriteStatus("hidhide-error", $"Rimappatura sospesa: {cloakError}");
+                    await Task.Delay(1000);
+                    continue;
+                }
+
+                SubmitState(virtualController, state.Gamepad, profile);
                 WriteStatus(
-                    cloakError is null ? "active" : "hidhide-error",
-                    cloakError is null
-                        ? $"Controller fisico {physicalControllerIndex + 1} nascosto, output virtuale attivo"
-                        : $"Output virtuale attivo, ma {cloakError}");
+                    "active",
+                    $"Controller fisico {physicalControllerIndex + 1} nascosto, output virtuale attivo");
                 activeLoopTimer.Wait(1);
             }
         }

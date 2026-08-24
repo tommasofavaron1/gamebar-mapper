@@ -41,9 +41,12 @@ internal sealed class HidHideController
         using var process = Process.Start(new ProcessStartInfo
         {
             FileName = cliPath,
-            Arguments = enabled ? "--cloak-on" : "--cloak-off",
+            Arguments = enabled
+                ? "--cloak-on --cloak-state"
+                : "--cloak-off --cloak-state",
             UseShellExecute = false,
             CreateNoWindow = true,
+            RedirectStandardOutput = true,
             RedirectStandardError = true
         });
 
@@ -64,6 +67,13 @@ internal sealed class HidHideController
             return string.IsNullOrWhiteSpace(error)
                 ? $"HidHideCLI ha restituito {process.ExitCode}"
                 : error;
+        }
+
+        var reportedState = process.StandardOutput.ReadToEnd().Trim();
+        var expectedState = enabled ? "--cloak-on" : "--cloak-off";
+        if (!string.Equals(reportedState, expectedState, StringComparison.Ordinal))
+        {
+            return $"HidHide non ha confermato {expectedState}";
         }
 
         currentState = enabled;

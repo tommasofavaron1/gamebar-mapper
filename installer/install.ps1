@@ -9,6 +9,7 @@ $installRoot = Join-Path $env:LOCALAPPDATA "Programs\ControllerMapperWidget"
 $workingRoot = Join-Path $env:TEMP ("ControllerMapperWidget-" + [Guid]::NewGuid().ToString("N"))
 $installId = [Guid]::NewGuid().ToString("N")
 $logPath = Join-Path $env:TEMP "ControllerMapperWidget-install-$installId.log"
+$driverRestartRequired = $false
 $programFiles64 = if ([string]::IsNullOrWhiteSpace(${env:ProgramW6432})) {
     $env:ProgramFiles
 } else {
@@ -67,9 +68,11 @@ if (-not $isAdministrator) {
         -Verb RunAs `
         -Wait `
         -PassThru
-    if ($elevatedProcess.ExitCode -ne 0) {
+    if ($elevatedProcess.ExitCode -notin 0, 3010) {
         exit $elevatedProcess.ExitCode
     }
+
+    $driverRestartRequired = $elevatedProcess.ExitCode -eq 3010
 }
 
 if ($Elevated -and -not $isAdministrator) {
@@ -87,6 +90,8 @@ try {
         if ($driverProcess.ExitCode -notin 0, 3010) {
             throw "Installazione ViGEmBus non riuscita: codice $($driverProcess.ExitCode)."
         }
+
+        $driverRestartRequired = $driverRestartRequired -or $driverProcess.ExitCode -eq 3010
 
         if ($null -eq (Get-Service "ViGEmBus" -ErrorAction SilentlyContinue)) {
             $driverRoot = Join-Path $programFiles64 "Nefarius Software Solutions\ViGEm Bus Driver"
@@ -136,20 +141,44 @@ try {
             $hidHideSetup = Join-Path $workingRoot "Drivers\HidHideSetup.exe"
             $hidHideProcess = Start-Process `
                 -FilePath $hidHideSetup `
+                -ArgumentList "/install", "/quiet", "/norestart", "INSTALLLEVEL=2" `
                 -Wait `
                 -PassThru
             if ($hidHideProcess.ExitCode -notin 0, 3010) {
                 throw "Installazione HidHide non riuscita: codice $($hidHideProcess.ExitCode)."
             }
 
+            $driverRestartRequired = $driverRestartRequired -or $hidHideProcess.ExitCode -eq 3010
+
             $hidHideCli = $hidHideCliCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
             if ($null -eq $hidHideCli) {
-                throw "HidHide e stato installato ma HidHideCLI non e disponibile. Riavvia Windows e ripeti l'installazione."
+                if ($driverRestartRequired) {
+                    Write-Warning "HidHide completera l'installazione dopo il riavvio di Windows."
+                }
+                else {
+                    throw "HidHide e stato installato ma HidHideCLI non e disponibile."
+                }
+            }
+        }
+
+        if ($null -ne $hidHideCli) {
+            & $hidHideCli --version | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                if ($driverRestartRequired) {
+                    Write-Warning "HidHide non e ancora operativo e richiede il riavvio di Windows."
+                }
+                else {
+                    throw "HidHideCLI e presente ma non riesce a comunicare con il driver."
+                }
             }
         }
     }
 
     if ($Elevated) {
+        if ($driverRestartRequired) {
+            exit 3010
+        }
+
         exit 0
     }
 
@@ -183,11 +212,19 @@ try {
 
     $hidHideConfigurationWarning = $null
     Copy-Item (Join-Path $workingRoot "configure-hidhide.ps1") $installRoot -Force
-    try {
-        & (Join-Path $installRoot "configure-hidhide.ps1")
+    if ($driverRestartRequired) {
+        $hidHideConfigurationWarning = "Riavvia Windows, collega un solo controller e riesegui l'installer per completare la configurazione HidHide."
     }
-    catch {
-        $hidHideConfigurationWarning = $_.Exception.Message
+    else {
+        try {
+            & (Join-Path $installRoot "configure-hidhide.ps1")
+        }
+        catch {
+            $hidHideConfigurationWarning = $_.Exception.Message
+        }
+    }
+
+    if ($null -ne $hidHideConfigurationWarning) {
         Write-Warning "HidHide configuration was skipped: $hidHideConfigurationWarning"
     }
 
