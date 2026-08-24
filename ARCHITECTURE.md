@@ -34,7 +34,7 @@ Il backend e autorizzato da HidHide a vedere il dispositivo nascosto. Il control
 - `build.cmd` compila il widget `Release|x64` con .NET Native.
 - `install-dev.ps1` registra localmente il layout UWP per lo sviluppo.
 - `configure-hidhide.ps1` seleziona e configura in modo conservativo il controller fisico.
-- `installer/build-installer.ps1` produce l'installer IExpress standalone.
+- `installer/build-installer.ps1` produce l'installer Inno Setup standalone.
 - `installer/install.ps1` installa driver, widget, backend e avvio automatico.
 
 ## Stato condiviso

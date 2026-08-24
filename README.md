@@ -58,6 +58,12 @@ Lo script registra il backend tra le applicazioni consentite, identifica il cont
 
 ## Installer
 
+La build dell'installer richiede [Inno Setup 6](https://jrsoftware.org/isinfo.php), installabile con:
+
+```powershell
+winget install --id JRSoftware.InnoSetup --exact
+```
+
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\installer\build-installer.ps1
 ```

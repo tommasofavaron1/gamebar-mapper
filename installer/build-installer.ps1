@@ -1,15 +1,17 @@
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path $PSScriptRoot -Parent
-$packageRoot = Get-ChildItem (Join-Path $projectRoot "AppPackages") -Directory |
-    Where-Object Name -like "WidgetSampleCS_*_x64_Test" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1 -ExpandProperty FullName
+$manifest = [xml](Get-Content (Join-Path $projectRoot "Package.appxmanifest"))
+$packageVersion = $manifest.Package.Identity.Version
+$packageRoot = Join-Path $projectRoot "AppPackages\WidgetSampleCS_${packageVersion}_x64_Test"
 $makeAppx = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter "makeappx.exe" -Recurse |
     Where-Object FullName -like "*\x64\makeappx.exe" |
     Sort-Object FullName -Descending |
     Select-Object -First 1 -ExpandProperty FullName
-$iexpress = Join-Path $env:WINDIR "System32\iexpress.exe"
+$innoCompiler = @(
+    (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+    (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe")
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
 $stagingRoot = Join-Path $PSScriptRoot "staging"
 $payloadRoot = Join-Path $stagingRoot "payload"
 $packageLayout = Join-Path $payloadRoot "Package"
@@ -18,23 +20,19 @@ $companionLayout = Join-Path $payloadRoot "Companion"
 $driversLayout = Join-Path $payloadRoot "Drivers"
 $distRoot = Join-Path $projectRoot "dist"
 $targetExe = Join-Path $distRoot "ControllerMapperSetup.exe"
-$sedPath = Join-Path $stagingRoot "ControllerMapperSetup.sed"
+$issPath = Join-Path $stagingRoot "ControllerMapperSetup.iss"
 
 & (Join-Path $projectRoot "build.cmd")
 if ($LASTEXITCODE -ne 0) {
     throw "Compilazione Release non riuscita."
 }
 
-$packageRoot = Get-ChildItem (Join-Path $projectRoot "AppPackages") -Directory |
-    Where-Object Name -like "WidgetSampleCS_*_x64_Test" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1 -ExpandProperty FullName
 $msix = Get-ChildItem $packageRoot -Filter "*.msix" | Select-Object -First 1 -ExpandProperty FullName
 
 if ([string]::IsNullOrWhiteSpace($makeAppx) -or
     [string]::IsNullOrWhiteSpace($msix) -or
-    -not (Test-Path $iexpress)) {
-    throw "MakeAppx, IExpress o il pacchetto MSIX Release non sono disponibili."
+    -not (Test-Path $innoCompiler)) {
+    throw "MakeAppx, Inno Setup o il pacchetto MSIX Release non sono disponibili."
 }
 
 Remove-Item $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -77,58 +75,38 @@ Copy-Item (Join-Path $projectRoot "configure-hidhide.ps1") $payloadRoot -Force
 Compress-Archive -Path (Join-Path $payloadRoot "*") -DestinationPath (Join-Path $stagingRoot "payload.zip") -Force
 Copy-Item (Join-Path $PSScriptRoot "install.ps1") $stagingRoot -Force
 
-$sed = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=0
-HideExtractAnimation=1
-UseLongFileName=1
-InsideCompressed=0
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=Controller Mapper installato. Apri Xbox Game Bar con Win+G.
-TargetName=$targetExe
-FriendlyName=Controller Mapper Setup
-AppLaunched=powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1
-PostInstallCmd=<None>
-AdminQuietInstCmd=
-UserQuietInstCmd=
-SourceFiles=SourceFiles
-[SourceFiles]
-SourceFiles0=$stagingRoot\
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
-[Strings]
-FILE0="install.ps1"
-FILE1="payload.zip"
+$iss = @"
+[Setup]
+AppId={{C1EC8EB8-E769-46A4-A62B-C5BDFB60A67C}
+AppName=Controller Mapper
+AppVersion=$packageVersion
+AppPublisher=Controller Mapper
+CreateAppDir=no
+Uninstallable=no
+PrivilegesRequired=lowest
+OutputDir=$distRoot
+OutputBaseFilename=ControllerMapperSetup
+Compression=lzma2/max
+SolidCompression=yes
+WizardStyle=modern
+ArchitecturesAllowed=x64compatible
+DisableProgramGroupPage=yes
+
+[Files]
+Source: "$stagingRoot\install.ps1"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall
+Source: "$stagingRoot\payload.zip"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall
+
+[Run]
+Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\install.ps1"""; StatusMsg: "Installazione di Controller Mapper..."; Flags: waituntilterminated
 "@
 
-Set-Content -Path $sedPath -Value $sed -Encoding ASCII
+Set-Content -Path $issPath -Value $iss -Encoding UTF8
 Remove-Item $targetExe -Force -ErrorAction SilentlyContinue
-$iexpressProcess = Start-Process -FilePath $iexpress -ArgumentList "/N", $sedPath -Wait -PassThru
+& $innoCompiler /Qp $issPath
 $minimumInstallerSize = 10MB
 $targetFile = Get-Item $targetExe -ErrorAction SilentlyContinue
 
-if ($null -eq $targetFile -or $targetFile.Length -lt $minimumInstallerSize) {
-    $temporaryInstaller = Get-ChildItem $distRoot -Filter "RCX*.tmp" -File -ErrorAction SilentlyContinue |
-        Where-Object Length -ge $minimumInstallerSize |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-
-    if ($null -ne $temporaryInstaller) {
-        Move-Item $temporaryInstaller.FullName $targetExe -Force
-        $targetFile = Get-Item $targetExe
-    }
-}
-
-if ($iexpressProcess.ExitCode -ne 0 -or
+if ($LASTEXITCODE -ne 0 -or
     $null -eq $targetFile -or
     $targetFile.Length -lt $minimumInstallerSize) {
     throw "Creazione dell'installer EXE non riuscita."
