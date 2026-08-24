@@ -17,6 +17,9 @@ namespace WidgetSampleCS.Models
         public bool Enabled { get; set; }
 
         [DataMember]
+        public int SelectedControllerIndex { get; set; }
+
+        [DataMember]
         public ObservableCollection<MappingEntry> Mappings { get; set; } = new ObservableCollection<MappingEntry>();
 
         public static MappingProfile CreateDefault()

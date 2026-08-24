@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using WidgetSampleCS.Models;
@@ -20,6 +21,10 @@ namespace WidgetSampleCS
         private bool statusRefreshInProgress;
 
         public MappingProfile Profile { get; private set; } = MappingProfile.CreateDefault();
+        public IReadOnlyList<string> ControllerOptions { get; } = new[]
+        {
+            "Controller 1", "Controller 2", "Controller 3", "Controller 4"
+        };
 
         public Widget1()
         {
@@ -35,6 +40,8 @@ namespace WidgetSampleCS
             Profile = await profileStore.LoadAsync();
             Bindings.Update();
             isInitializing = true;
+            Profile.SelectedControllerIndex = Math.Max(0, Math.Min(3, Profile.SelectedControllerIndex));
+            ControllerSelector.SelectedIndex = Profile.SelectedControllerIndex;
             RemapToggle.IsOn = Profile.Enabled;
             isInitializing = false;
             inputTimer.Start();
@@ -48,15 +55,16 @@ namespace WidgetSampleCS
 
         private void InputTimer_Tick(object sender, object e)
         {
-            var gamepad = Gamepad.Gamepads.FirstOrDefault();
+            var selectedIndex = Profile.SelectedControllerIndex;
+            var gamepad = Gamepad.Gamepads.ElementAtOrDefault(selectedIndex);
             if (gamepad == null)
             {
-                ControllerStatus.Text = "Nessun controller rilevato";
+                ControllerStatus.Text = $"Controller {selectedIndex + 1} non rilevato";
                 PressedButtons.Text = "Nessun tasto premuto";
                 return;
             }
 
-            ControllerStatus.Text = "Controller connesso";
+            ControllerStatus.Text = $"Controller {selectedIndex + 1} connesso";
             var buttons = gamepad.GetCurrentReading().Buttons;
             var pressed = Profile.Mappings
                 .Where(mapping => mapping.IsPressed(buttons))
@@ -78,6 +86,18 @@ namespace WidgetSampleCS
 
         private void PreviewToggle_Toggled(object sender, RoutedEventArgs e)
         {
+        }
+
+        private async void ControllerSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isInitializing || ControllerSelector.SelectedIndex < 0)
+            {
+                return;
+            }
+
+            Profile.SelectedControllerIndex = ControllerSelector.SelectedIndex;
+            await profileStore.SaveAsync(Profile);
+            BackendStatus.Text = $"Controller {Profile.SelectedControllerIndex + 1} selezionato";
         }
 
         private async void RemapToggle_Toggled(object sender, RoutedEventArgs e)

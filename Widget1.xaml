@@ -25,6 +25,13 @@
             <StackPanel>
                 <TextBlock FontFamily="Segoe UI Semibold" FontSize="20" Text="Controller Mapper" />
                 <TextBlock x:Name="ControllerStatus" Foreground="#A9AFB8" Text="Ricerca controller..." />
+                <ComboBox x:Name="ControllerSelector"
+                          Width="190"
+                          Margin="0,10,0,0"
+                          HorizontalAlignment="Left"
+                          Header="Controller principale"
+                          ItemsSource="{x:Bind ControllerOptions}"
+                          SelectionChanged="ControllerSelector_SelectionChanged" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <ToggleSwitch x:Name="PreviewToggle"

@@ -6,6 +6,8 @@ internal sealed class MappingProfile
 {
     public bool Enabled { get; set; }
 
+    public int SelectedControllerIndex { get; set; }
+
     public List<MappingEntry> Mappings { get; set; } = [];
 
     public static MappingProfile Load(string path)

@@ -48,7 +48,6 @@ internal static class Program
         DateTime profileWriteTime = DateTime.MinValue;
         ViGEmClient? client = null;
         IXbox360Controller? virtualController = null;
-        uint? physicalControllerIndex = null;
         var hidHide = new HidHideController();
 
         try
@@ -78,7 +77,6 @@ internal static class Program
                 {
                     var hidHideError = hidHide.SetCloaking(false);
                     DisconnectVirtualController(ref virtualController);
-                    physicalControllerIndex = null;
                     WriteStatus(
                         hidHideError is null ? "disabled" : "hidhide-error",
                         hidHideError ?? "Rimappatura disattivata, controller fisico visibile");
@@ -86,13 +84,11 @@ internal static class Program
                     continue;
                 }
 
-                physicalControllerIndex ??= XInput.FindConnectedController();
-                if (physicalControllerIndex is null ||
-                    !XInput.TryGetState(physicalControllerIndex.Value, out var state))
+                var physicalControllerIndex = (uint)Math.Clamp(profile.SelectedControllerIndex, 0, 3);
+                if (!XInput.TryGetState(physicalControllerIndex, out var state))
                 {
                     DisconnectVirtualController(ref virtualController);
-                    physicalControllerIndex = null;
-                    WriteStatus("waiting", "Controller fisico non rilevato");
+                    WriteStatus("waiting", $"Controller {physicalControllerIndex + 1} non rilevato");
                     await Task.Delay(250);
                     continue;
                 }
@@ -122,7 +118,7 @@ internal static class Program
                 WriteStatus(
                     cloakError is null ? "active" : "hidhide-error",
                     cloakError is null
-                        ? $"Controller fisico {physicalControllerIndex.Value + 1} nascosto, output virtuale attivo"
+                        ? $"Controller fisico {physicalControllerIndex + 1} nascosto, output virtuale attivo"
                         : $"Output virtuale attivo, ma {cloakError}");
                 await Task.Delay(8);
             }
